@@ -109,20 +109,6 @@ def insert_item(db: sqlite3.Connection, item:Item):
     cursor=db.cursor()
     cursor.execute(item.name,item.category,item.image_name)
     db.commit()
-    
-    """
-    try:
-        with open("items.json", "r") as f:
-            data = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        data = {"items": []}
-
-        # Append new item
-    data["items"].append(item.model_dump())
-        # Write back to the file
-    with open("items.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-    """
 
 # add_item is a handler to add a new item for POST /items .
 @app.post("/items",response_model=AddItemResponse)
@@ -217,16 +203,5 @@ def get_items(item_id: int, db : sqlite3.Connection = Depends(get_db)):
     cursor.execute(item.id)
     item = cursor.fetchall()
 
-    """
-    try:
-        with open(items_file, "r") as f:
-            data = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        data = {"items": []}
-    
-    items = data.get("items", [])
-    
-    return items[item_id - 1]
-    """
 
         
