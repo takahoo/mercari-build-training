@@ -203,16 +203,5 @@ def get_items(item_id: int, db : sqlite3.Connection = Depends(get_db)):
     cursor.execute(item.id)
     item = cursor.fetchall()
 
-    """
-    try:
-        with open(items_file, "r") as f:
-            data = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        data = {"items": []}
-    
-    items = data.get("items", [])
-    
-    return items[item_id - 1]
-    """
 
         
