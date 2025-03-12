@@ -39,7 +39,26 @@ def get_db():
 
 # STEP 5-1: set up the database connection
 def setup_database():
-    pass
+    conn = sqlite3.connect(db)
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA foreign_keys = ON;")
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            category_id INTEGER NOT NULL,
+            image_name TEXT NOT NULL,
+            FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+        )
+    ''')
+    conn.commit()
+    conn.close()
 
 
 @asynccontextmanager
@@ -53,6 +72,7 @@ app = FastAPI(lifespan=lifespan)
 logger = logging.getLogger("uvicorn")
 logger.level = logging.INFO
 images = pathlib.Path(__file__).parent.resolve() / "images"
+
 origins = [os.environ.get("FRONT_URL", "http://localhost:3000")]
 app.add_middleware(
     CORSMiddleware,
@@ -62,38 +82,48 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 class HelloResponse(BaseModel):
     message: str
-
-
-@app.get("/", response_model=HelloResponse)
-def hello():
-    return HelloResponse(**{"message": "Hello, world!"})
-
-
-class AddItemResponse(BaseModel):
-    message: str
-
+    
 class Item(BaseModel):
     name: str
     category: str
     image_name: str
 
-def insert_item(item: Item):
+@app.get("/", response_model=HelloResponse)
+def hello():
+    return HelloResponse(**{"message": "Hello, world!"})
+
+class AddItemResponse(BaseModel):
+    message: str
+
+def insert_item(item: Item, db:sqlite3.Connection):
     # STEP 4-1: add an implementation to store an item
-    try:
-        with open("items.json", "r") as f:
-            data = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        data = {"items": []}
-
-        # Append new item
-    data["items"].append({"name": item.name, "category": item.category, "image_name": item.image_name})
-
-        # Write back to the file
-    with open("items.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    cursor=db.cursor()
+    
+    #カテゴリがあるか確認
+    cursor.execute("INSERT OR IGNORE INTO categories (name) VALUES (?)", (item.category,))
+    cursor.execute("SELECT id FROM categories WHERE name = ?", (item.category,))
+    category_id = cursor.fetchone()[0]
+    
+    cursor.execute(
+        "INSERT INTO items (name, category_id, image_name) VALUES (?, ?, ?)",
+        (item.name, category_id, item.image_name),
+    )
+    db.commit()
+    
+ #   try:
+  #      with open("items.json", "r") as f:
+#           data = json.load(f)
+#    except (FileNotFoundError, json.JSONDecodeError):
+#        data = {"items": []}
+#
+#        # Append new item
+#    data["items"].append({"name": item.name, "category": item.category, "image_name": item.image_name})
+#
+#        # Write back to the file
+#    with open("items.json", "w", encoding="utf-8") as f:
+#        json.dump(data, f, indent=2, ensure_ascii=False)
 
 # add_item is a handler to add a new item for POST /items .
 @app.post("/items")
@@ -115,7 +145,7 @@ async def add_item(
     if not name or not category:
         raise HTTPException(status_code=400, detail="name is required")
 
-    insert_item(Item(name=name,category=category,image_name=image_name))
+    insert_item(Item(name=name, category=category, image_name=image_name), db)  
     return AddItemResponse(**{"message": f"item received: {name}"})
 
 
@@ -123,36 +153,31 @@ async def add_item(
 @app.get("/image/{image_name}")
 async def get_image(image_name:str):
     # Create image path
-    image = images / image_name
+    image = Image_dir / image_name
 
     if not image_name.endswith(".jpg"):
         raise HTTPException(status_code=400, detail="Image path does not end with .jpg")
 
     if not image.exists():
         logger.debug(f"Image not found: {image}")
-        image = images / "default.jpg"
+        image = Image_dir / "default.jpg"
 
     return FileResponse(image)
         
 @app.get("/items")
-def get_all_items():
-    try:
-        with open(items_file, "r") as f:
-            data = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        data = {"items": []}
-    
-    return data
-
+def get_all_items(db: sqlite3.Connection = Depends(get_db)):
+    cursor = db.cursor()
+    cursor.execute("SELECT items.id, items.name, categories.name AS category, items.image_name FROM items INNER JOIN categories ON items.category_id = categories.id")
+    items = cursor.fetchall()
+    return {"items": [dict(item) for item in items]}
 
 @app.get("/items/{item_id}")
-def get_items(item_id: int):
-    try:
-        with open(items_file, "r") as f:
-            data = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        data = {"items": []}
-    
-    items = data.get("items", [])
-    
-    return items[item_id - 1]
+def get_item(item_id: int, db: sqlite3.Connection = Depends(get_db)):
+    cursor = db.cursor()
+    cursor.execute("SELECT items.id, items.name, categories.name AS category, items.image_name FROM items INNER JOIN categories ON items.category_id = categories.id WHERE items.id = ?", (item_id,))
+    item = cursor.fetchone()
+
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    return dict(item)
