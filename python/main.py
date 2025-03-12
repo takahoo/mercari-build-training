@@ -153,14 +153,14 @@ async def add_item(
 @app.get("/image/{image_name}")
 async def get_image(image_name:str):
     # Create image path
-    image = Image_dir / image_name
+    image = images / image_name
 
     if not image_name.endswith(".jpg"):
         raise HTTPException(status_code=400, detail="Image path does not end with .jpg")
 
     if not image.exists():
         logger.debug(f"Image not found: {image}")
-        image = Image_dir / "default.jpg"
+        image = images / "default.jpg"
 
     return FileResponse(image)
         
