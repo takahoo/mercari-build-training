@@ -4,30 +4,37 @@ import logging
 import pathlib
 import logging
 import hashlib
-import sqlite3 
-from fastapi import FastAPI, Form, HTTPException, Depends, UploadFile, File, Query
+import sqlite3
+from fastapi import FastAPI, Form, HTTPException, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from typing import List, Optional
-from starlette.responses import FileResponse
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+
 
 app = FastAPI()
+items_file = "items.json"
+
+UPLOAD_FOLDER = "images"
+
+# Ensure the upload folder exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 logging.basicConfig(level=logging.DEBUG)
-DB_PATH = "/Users/takaho.ysz/db/mercari.sqlite3"
 
 # Define the path to the images & sqlite3 database
 images = pathlib.Path(__file__).parent.resolve() / "images"
 db = pathlib.Path(__file__).parent.resolve() / "db" / "mercari.sqlite3"
+database_path = "/app/db/mercari.sqlite3"
+db_dir = os.path.dirname(database_path)
+os.makedirs(db_dir, exist_ok=True)
 
 # Ensure images directory exists
 images_dir = pathlib.Path("images")
-images.mkdir(exist_ok=True)
+images_dir.mkdir(parents=True, exist_ok=True)
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH, check_same_thread = False)
+    conn = sqlite3.connect(database_path, check_same_thread=False)  # Use database_path
     conn.row_factory = sqlite3.Row  # Return rows as dictionaries
     try:
         yield conn
@@ -55,7 +62,6 @@ def setup_database():
             FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
         )
     ''')
-
     conn.commit()
     conn.close()
 
@@ -96,7 +102,7 @@ def hello():
 class AddItemResponse(BaseModel):
     message: str
 
-def insert_item(item: Item, db:sqlite3.Connection):
+def insert_item(item: Item, db: sqlite3.Connection):
     # STEP 4-1: add an implementation to store an item
     cursor=db.cursor()
     
@@ -124,9 +130,8 @@ def insert_item(item: Item, db:sqlite3.Connection):
 #    with open("items.json", "w", encoding="utf-8") as f:
 #        json.dump(data, f, indent=2, ensure_ascii=False)
 
-
 # add_item is a handler to add a new item for POST /items .
-@app.post("/items",response_model=AddItemResponse)
+@app.post("/items")
 async def add_item(
     name: str = Form(...),
     category: str = Form(...),
@@ -134,7 +139,6 @@ async def add_item(
     db: sqlite3.Connection = Depends(get_db),
 ):    
     image_name = ""  # Default to empty string if no image is uploaded
-        
     if image is not None:
         file_bytes = await image.read()
         image_hash = hashlib.sha256(file_bytes).hexdigest()
@@ -145,20 +149,6 @@ async def add_item(
 
     if not name or not category:
         raise HTTPException(status_code=400, detail="name is required")
-        
-    cursor = db.cursor()
-    
-    #カテゴリーが存在しなかった場合
-    cursor.execute("INSERT OR IGNORE INTO categories (name) VALUES (?)",(category,))
-    db.commit()
-    
-    #カテゴリーid
-    cursor.execute("SELECT id FROM categories WHERE name = ?", (category,))
-    result = cursor.fetchone()
-    
-    if result is None:
-        raise HTTPException(status_code = 400, detail="Category not found")
-    category_id = result[0]
 
     insert_item(Item(name=name, category=category, image_name=image_name), db)  
 
@@ -198,3 +188,4 @@ def get_item(item_id: int, db: sqlite3.Connection = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Item not found")
 
     return dict(item)
+
