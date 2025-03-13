@@ -15,21 +15,26 @@ from typing import List, Optional
 app = FastAPI()
 items_file = "items.json"
 
+UPLOAD_FOLDER = "images"
+
+# Ensure the upload folder exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 logging.basicConfig(level=logging.DEBUG)
 
 # Define the path to the images & sqlite3 database
 images = pathlib.Path(__file__).parent.resolve() / "images"
 db = pathlib.Path(__file__).parent.resolve() / "db" / "mercari.sqlite3"
+database_path = "/app/db/mercari.sqlite3"
+db_dir = os.path.dirname(database_path)
+os.makedirs(db_dir, exist_ok=True)
 
 # Ensure images directory exists
 images_dir = pathlib.Path("images")
-images.mkdir(exist_ok=True)
+images_dir.mkdir(parents=True, exist_ok=True)
 
 def get_db():
-    if not db.exists():
-        yield
-
-    conn = sqlite3.connect(db)
+    conn = sqlite3.connect(database_path, check_same_thread=False)  # Use database_path
     conn.row_factory = sqlite3.Row  # Return rows as dictionaries
     try:
         yield conn
@@ -39,7 +44,7 @@ def get_db():
 
 # STEP 5-1: set up the database connection
 def setup_database():
-    conn = sqlite3.connect(db)
+    conn = sqlite3.connect(database_path)
     cursor = conn.cursor()
     cursor.execute("PRAGMA foreign_keys = ON;")
     cursor.execute('''
