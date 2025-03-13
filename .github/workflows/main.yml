@@ -3,7 +3,7 @@ name: CI Test
 on:
   push:
     branches:
-      - main  # "main" ブランチへの push をトリガー
+      - main  # ワークフローを動かすブランチ
 
 jobs:
   build:
@@ -15,3 +15,10 @@ jobs:
 
       - name: Hello World を表示
         run: echo "Hello, GitHub Actions!"
+
+      - name: Docker imageをビルドしてpush
+        run: |
+          docker-build -t gchr.io/${{ github.repository_owner }}/mercari-build-training:${{ github.ref_name }} -f python/Dockerfile python
+          docker push gchr.io/${{ github.respitory_owner }}/mercari-build-training:${{ github.ref_name}}
+          #コンテクストを指定
+          #githun conteniner registry
