@@ -1,0 +1,17 @@
+name: CI Test
+
+on:
+  push:
+    branches:
+      - main  # "main" ブランチへの push をトリガー
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: リポジトリをチェック
+        uses: actions/checkout@v4
+
+      - name: Hello World を表示
+        run: echo "Hello, GitHub Actions!"
