@@ -18,7 +18,13 @@ jobs:
 
       - name: Docker imageをビルドしてpush
         run: |
-          docker-build -t gchr.io/${{ github.repository_owner }}/mercari-build-training:${{ github.ref_name }} -f python/Dockerfile python
-          docker push gchr.io/${{ github.respitory_owner }}/mercari-build-training:${{ github.ref_name}}
+        
+          docker build -t ghcr.io/${{ github.repository_owner }}/mercari-build-training:${{ github.ref_name }} -f python/Dockerfile python/
+          docker push ghcr.io/${{ github.repository_owner }}/mercari-build-training:${{ github.ref_name }}
+
           #コンテクストを指定
           #githun conteniner registry
+
+      - name: ghcrにログイン
+        run: cho "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        #dockerイメージpushのためのログイン
