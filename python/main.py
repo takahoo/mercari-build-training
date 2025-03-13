@@ -44,7 +44,7 @@ def get_db():
 
 # STEP 5-1: set up the database connection
 def setup_database():
-    conn = sqlite3.connect(database_path)
+    conn = sqlite3.connect(db)
     cursor = conn.cursor()
     cursor.execute("PRAGMA foreign_keys = ON;")
     cursor.execute('''
@@ -151,6 +151,7 @@ async def add_item(
         raise HTTPException(status_code=400, detail="name is required")
 
     insert_item(Item(name=name, category=category, image_name=image_name), db)  
+
     return AddItemResponse(**{"message": f"item received: {name}"})
 
 
@@ -172,6 +173,7 @@ async def get_image(image_name:str):
 @app.get("/items")
 def get_all_items(db: sqlite3.Connection = Depends(get_db)):
     cursor = db.cursor()
+
     cursor.execute("SELECT items.id, items.name, categories.name AS category, items.image_name FROM items INNER JOIN categories ON items.category_id = categories.id")
     items = cursor.fetchall()
     return {"items": [dict(item) for item in items]}
@@ -186,3 +188,4 @@ def get_item(item_id: int, db: sqlite3.Connection = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Item not found")
 
     return dict(item)
+

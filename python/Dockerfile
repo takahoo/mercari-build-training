@@ -3,6 +3,8 @@ FROM python:3.9-alpine
 WORKDIR /app
 
 RUN apk add --no-cache sqlite
+# Install Python3 and Pip
+RUN apk add --no-cache python3 py3-pip
 
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
