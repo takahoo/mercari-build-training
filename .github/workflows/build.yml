@@ -1,6 +1,9 @@
 name: build
 run-name: ${{ github.actor }} is building ${{ github.ref_name }} 🚀
-on: [push] 
+on: 
+  push:
+    branches:
+      - main 
 
 env:
  REGISTRY: ghcr.io
